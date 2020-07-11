@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://git4pl.github.io</id>
     <title>PL Notes</title>
-    <updated>2020-07-07T12:13:50.503Z</updated>
+    <updated>2020-07-11T01:43:52.620Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://git4pl.github.io"/>
     <link rel="self" href="https://git4pl.github.io/atom.xml"/>
@@ -10,6 +10,81 @@
     <logo>https://git4pl.github.io/images/avatar.png</logo>
     <icon>https://git4pl.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, PL Notes</rights>
+    <entry>
+        <title type="html"><![CDATA[适配器模式笔记]]></title>
+        <id>https://git4pl.github.io/post/NUANIynJT/</id>
+        <link href="https://git4pl.github.io/post/NUANIynJT/">
+        </link>
+        <updated>2020-07-11T01:28:47.000Z</updated>
+        <content type="html"><![CDATA[<p>###开篇小引<br>
+在上大学时我做了一个小项目是关于人机交互的应用，我负责实现的部分是通过语音识别技术接收用户的问题，然后在数据库中检索预置的问题答案，并由我们的应用“说”出来对用户的问题进行解答。当时我就由这个应用的交互模式产生了一个小小的想法，我希望有一天可以实现一个很简单方便的东西能让中国的老奶奶和美国甚至更多其他国家的老奶奶坐在一起轻松愉快地聊天，完全不用担心各自语言的障碍，这涉及到语音识别和机器翻译等诸多技术，现在顶级的科技公司已经在各种细分的技术上有研究实践了。我的那个小想法其实与本篇博客的主题——适配器模式——有相似的实现思想。<br>
+###定义及特点<br>
+<strong>适配器模式将一个类的接口转换成客户期望的另一个接口，使得原本因接口不匹配而无法在一起工作的两个类能够在一起工作。</strong></p>
+<p>适配器模式可以通过创建适配器进行接口转换，让不兼容的接口变得能兼容。这可以让客户从实现的接口解耦，如果在一段时间之后，我们想要改变接口，适配器可以将改变的部分封装起来，客户端就不必为了应对不同的接口而每次跟着修改。</p>
+<p>适配器模式涉及到三种角色：<br>
+●  目标接口（Target）——定义客户期望的与特定领域相关的接口<br>
+●  适配者类（Adaptee）——定义一个已经存在的接口，是需要适配的类<br>
+●  适配器类（Adapter）——通过包装一个需要适配的对象，把原接口转换成目标接口</p>
+<p>###适用场景<br>
+以下情况可使用适配器模式：<br>
+√  系统需要使用现有的类，而这些类的接口不符合系统的接口<br>
+√  想要建立一个可以重用的类，用于与一些彼此之间没有太大关联的一些类，包括一些可能在将来引进的类一起工作<br>
+√  两个类所做的事情相同或相似，但是具有不同接口的时候<br>
+√  旧的系统开发的类已经实现了一些功能，但是客户端却只能以另外接口的形式访问，但我们不希望手动更改原有类的时候<br>
+√  使用第三方组件，组件接口定义和自己定义的不同，不希望修改自己的接口，但是要使用第三方组件接口的功能</p>
+<p>###实现方式<br>
+在GoF的设计模式中，适配器模式有两种可行的实现方式：<strong>类适配器</strong>和<strong>对象适配器</strong>，类适配器使用多重继承对一个接口与另一个接口进行匹配，如下图所示<br>
+<img src="https://git4pl.github.io/post-images/1594431276853.png" alt="" loading="lazy"><br>
+对象适配器依赖于对象组合，如下图所示<br>
+<img src="https://git4pl.github.io/post-images/1594431299777.webp" alt="" loading="lazy"><br>
+类适配器因为需要Adapter类同时继承自Target类和Adaptee类，所以只能在支持多重继承的语言中实现（Java虽然不支持多继承，但可以通过实现接口implements interface来实现类适配器，如下代码示例）；对象适配器模式充满着良好的OO设计原则：使用对象组合，以修改的接口包装被适配者，这样被适配者的任何子类，都可以搭配着适配器使用。</p>
+<pre><code>public interface Target {
+    /**
+     * 这是适配者类Adaptee也有的方法
+     */
+    public void sampleOperation1(); 
+    /**
+     * 这是适配者类Adapteee没有的方法
+     */
+    public void sampleOperation2(); 
+}
+
+public class Adaptee {
+    void sampleOperation1(){}
+}
+
+public class Adapter extends Adaptee implements Target {
+    /**
+     * 由于适配者类Adaptee没有方法sampleOperation2()
+     * 因此适配器类Adapter补充上这个方法
+     */
+    @Override
+    public void sampleOperation2() {
+        //实现相关的代码
+    }
+}
+</code></pre>
+<p>类适配器和对象适配器有不同的权衡。<br>
+类适配器：<br>
+●  用一个具体的Adapter类对Adaptee和Target进行匹配，这使得Adapter不能和Adaptee的子类一起工作<br>
+●  使得Adapter可以重定义Adaptee的部分行为，因为Adapter是Adaptee的子类<br>
+●  仅仅引入了一个对象，并不需要额外的指针以间接得到Adaptee<br>
+对象适配器：<br>
+●  允许一个Adapter与多个Adaptee（即Adaptee本身以及它的所有子类）同时工作，Adapter也可以一次给所有的Adaptee添加功能<br>
+●  重定义Adaptee的行为比较困难（这需要生成Adaptee的子类并且使得Adapter引用这个子类而不是引用Adaptee本身）</p>
+<p>###适配器小结<br>
+使用适配器的优点：<br>
+1、通过适配器，客户端可以调用同一接口，因而对客户端来说是透明的。这样做更简单、更直接、更紧凑。<br>
+2、复用了现存的类，解决了现存类和复用环境要求不一致的问题。<br>
+3、将目标类和适配者类解耦，通过引入一个适配器类重用现有的适配者类，而无需修改原有代码。<br>
+4、一个对象适配器可以把多个不同的适配者类适配到同一个目标，也就是说，同一个适配器可以把适配者类和它的子类都适配到目标接口。</p>
+<p>使用适配器的缺点：<br>
+过多的使用适配器，会让系统非常零乱，不易整体进行把握。</p>
+<p>###Thanks To<br>
+<a href="http://www.cnblogs.com/wangjq/archive/2012/07/09/2582485.html">设计模式学习笔记-适配器模式</a><br>
+<a href="http://www.cnblogs.com/java-my-life/archive/2012/04/13/2442795.html">《JAVA与模式》之适配器模式</a></p>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[真的理解单例模式吗？]]></title>
         <id>https://git4pl.github.io/post/TjHrGm886/</id>
