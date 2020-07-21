@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://git4pl.github.io</id>
     <title>PL Notes</title>
-    <updated>2020-07-12T02:54:36.478Z</updated>
+    <updated>2020-07-21T12:32:01.828Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://git4pl.github.io"/>
     <link rel="self" href="https://git4pl.github.io/atom.xml"/>
@@ -10,6 +10,116 @@
     <logo>https://git4pl.github.io/images/avatar.png</logo>
     <icon>https://git4pl.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, PL Notes</rights>
+    <entry>
+        <title type="html"><![CDATA[关于类加载的时机与过程]]></title>
+        <id>https://git4pl.github.io/post/OH92heMH4/</id>
+        <link href="https://git4pl.github.io/post/OH92heMH4/">
+        </link>
+        <updated>2020-07-19T02:54:31.000Z</updated>
+        <content type="html"><![CDATA[<p>思考以下代码的输出结果：</p>
+<pre><code>public class Singleton {
+    private static Singleton instance = new Singleton();
+    public static int count1;
+    public static int count2 = 0;
+    private Singleton() {
+        count1 ++;
+        count2 ++;
+    }
+
+    public static Singleton getInstance() {
+        return instance;
+    }
+｝
+
+public class Test {
+    public static void main(String[] args) {
+        Singleton singleton = Singleton.getInstance();
+        System.out.println(&quot;count1 = &quot; + Singleton.count1);
+        System.out.println(&quot;count2 = &quot; + Singleton.count2);
+    }
+}
+</code></pre>
+<blockquote>
+<p>错误答案<br>
+count1 = 1<br>
+count2 = 1</p>
+</blockquote>
+<blockquote>
+<p>正确答案<br>
+count1 = 1<br>
+count2 = 0</p>
+</blockquote>
+<p>这个问题就是牵涉到类的加载与过程，虚拟机定义了以下六种情况，如果类未被初始化，则会进行初始化：1、创建类的实例<br>
+2、访问类的静态变量(除常量【被final修辞的静态变量】原因:常量一种特殊的变量，因为编译器把他们当作值(value)而不是域(field)来对待。如果你的代码中用到了常变量(constant variable)，编译器并不会生成字节码来从对象中载入域的值，而是直接把这个值插入到字节码中。这是一种很有用的优化，但是如果你需要改变final域的值那么每一块用到那个域的代码都需要重新编译。<br>
+3、访问类的静态方法<br>
+4、反射如(Class.forName(&quot;my.xyz.Test&quot;))<br>
+5、当初始化一个类时，发现其父类还未初始化，则先出发父类的初始化<br>
+6、虚拟机启动时，定义了main()方法的那个类先初始化</p>
+<p>我们来分析以下上述代码的执行情况：</p>
+<ol>
+<li>main()方法 Test类初始化</li>
+<li>main()方法第一句：访问Singleton的getInstance()静态方法 Singleton类初始化，此时按照代码执行顺序进行静态成员的初始化默认值<br>
+instance = null<br>
+count1 = 0<br>
+count2 = 0</li>
+<li>按照代码执行顺序为类的静态成员赋值：<br>
+private static Singleton instance = new Singleton(); instance调用Singleton的构造方法,调用构造方法后 count1 = 1,count2 = 1<br>
+public static int count1; count1没有进行赋值操作，所以count1 = 1<br>
+public static int count2 = 0; count2进行赋值操作，所以count2 = 0</li>
+<li>main()方法第二句：访问Singleton的count1变量，由于count1没有赋初始值，所以count1 = 1</li>
+<li>main()方法第三局：访问Singleton的count2变量，由于count2赋了初始值 0，所以count2 = 0</li>
+</ol>
+<p>如果我们把Singleton代码执行顺序变化一下：</p>
+<pre><code>public class Singleton {
+    public static int count1;
+    public static int count2 = 0;
+    private static Singleton instance = new Singleton();
+
+    private Singleton() {
+        count1++;
+        count2++;
+    }
+
+    public static Singleton getInstance() {
+        return instance;
+    }
+
+}
+</code></pre>
+<p>此时输出结果就为:</p>
+<blockquote>
+<p>count1 = 1<br>
+count2 = 1</p>
+</blockquote>
+<p>如果改为如下代码，那么运行情况又是怎样：</p>
+<pre><code>public class Singleton {
+    Singleton(){
+        System.out.println(&quot;Singleton construct&quot;);
+    }
+
+    static {
+        System.out.println(&quot;Singleton static block&quot;);
+    }
+
+    public static final int COUNT = 1;
+
+}
+
+public class Test {
+    public static void main(String[] args) {
+        System.out.println(&quot;count = &quot; + Singleton.COUNT);
+    }
+}
+</code></pre>
+<p>运行结果为：</p>
+<blockquote>
+<p>count = 1</p>
+</blockquote>
+<p>由于常量在编译阶段会存入相应类的常量池当中，所以在实际调用中Singleton.COUNT并没有直接引用到Singleton类，因此不会进行Singleton类的初始化，所以输出结果为 count = 1</p>
+<h3 id="thanks-to">Thanks To</h3>
+<p><a href="https://www.jianshu.com/p/27eb533b29f7">Kotlin:由object和companion object创建的单例模式引发的思考</a></p>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[适配器模式笔记]]></title>
         <id>https://git4pl.github.io/post/NUANIynJT/</id>
