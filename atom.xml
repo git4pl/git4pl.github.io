@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://git4pl.github.io</id>
     <title>PL Notes</title>
-    <updated>2020-08-16T10:56:56.884Z</updated>
+    <updated>2020-08-16T11:10:25.270Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://git4pl.github.io"/>
     <link rel="self" href="https://git4pl.github.io/atom.xml"/>
@@ -89,10 +89,10 @@
     Paint paint = new Paint();
     paint.setAntiAlias(true);
  
-   //新创建一个Bitmap对象newBitmap 宽高都是r
+    //新创建一个Bitmap对象newBitmap 宽高都是r
     Bitmap newBitmap = Bitmap.createBitmap(r, r, Bitmap.Config.ARGB_8888);
  
-   //创建一个使用newBitmap的Canvas对象
+    //创建一个使用newBitmap的Canvas对象
     Canvas canvas = new Canvas(newBitmap);
  
     //创建一个Path对象，path添加一个圆 圆心半径均是r / 2， Path.Direction.CW顺时针方向
