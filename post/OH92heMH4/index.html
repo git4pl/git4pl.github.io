@@ -4,7 +4,7 @@
 <meta name="description" content=""/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>关于类加载的时机与过程 | PL Notes</title>
-<link rel="shortcut icon" href="https://git4pl.github.io/favicon.ico?v=1595334712394">
+<link rel="shortcut icon" href="https://git4pl.github.io/favicon.ico?v=1597575356640">
 <link href="https://cdn.bootcss.com/font-awesome/5.11.2/css/all.css" rel="stylesheet">
 <link rel="stylesheet" href="https://git4pl.github.io/styles/main.css">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
@@ -129,7 +129,8 @@ count2 = 1</p>
 count1 = 1<br>
 count2 = 0</p>
 </blockquote>
-<p>这个问题就是牵涉到类的加载与过程，虚拟机定义了以下六种情况，如果类未被初始化，则会进行初始化：1、创建类的实例<br>
+<p>这个问题就是牵涉到类的加载与过程，虚拟机定义了以下六种情况，如果类未被初始化，则会进行初始化：<br>
+1、创建类的实例<br>
 2、访问类的静态变量(除常量【被final修辞的静态变量】原因:常量一种特殊的变量，因为编译器把他们当作值(value)而不是域(field)来对待。如果你的代码中用到了常变量(constant variable)，编译器并不会生成字节码来从对象中载入域的值，而是直接把这个值插入到字节码中。这是一种很有用的优化，但是如果你需要改变final域的值那么每一块用到那个域的代码都需要重新编译。<br>
 3、访问类的静态方法<br>
 4、反射如(Class.forName(&quot;my.xyz.Test&quot;))<br>
@@ -147,7 +148,7 @@ private static Singleton instance = new Singleton(); instance调用Singleton的�
 public static int count1; count1没有进行赋值操作，所以count1 = 1<br>
 public static int count2 = 0; count2进行赋值操作，所以count2 = 0</li>
 <li>main()方法第二句：访问Singleton的count1变量，由于count1没有赋初始值，所以count1 = 1</li>
-<li>main()方法第三局：访问Singleton的count2变量，由于count2赋了初始值 0，所以count2 = 0</li>
+<li>main()方法第三句：访问Singleton的count2变量，由于count2赋了初始值 0，所以count2 = 0</li>
 </ol>
 <p>如果我们把Singleton代码执行顺序变化一下：</p>
 <pre><code>public class Singleton {
