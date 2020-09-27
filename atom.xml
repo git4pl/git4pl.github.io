@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://git4pl.github.io</id>
     <title>PL Notes</title>
-    <updated>2020-08-16T11:10:25.270Z</updated>
+    <updated>2020-09-27T06:08:31.967Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://git4pl.github.io"/>
     <link rel="self" href="https://git4pl.github.io/atom.xml"/>
@@ -10,6 +10,173 @@
     <logo>https://git4pl.github.io/images/avatar.png</logo>
     <icon>https://git4pl.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, PL Notes</rights>
+    <entry>
+        <title type="html"><![CDATA[记部落帖子分享微信小程序封面图片合成的一些坑]]></title>
+        <id>https://git4pl.github.io/post/WmBbWgxWB/</id>
+        <link href="https://git4pl.github.io/post/WmBbWgxWB/">
+        </link>
+        <updated>2020-08-22T01:07:08.000Z</updated>
+        <content type="html"><![CDATA[<h3 id="项目背景">项目背景</h3>
+<p>58部落帖子详情的分享功能里分享到微信小程序，原有的封面图是由Server端下发的图片，若帖子是纯文本内容则Server下发的是58部落的广告默认图，这样分享出去的微信小程序封面图形势比较简单。为了丰富小程序封面图的内容，激起收到分享的用户点击进入小程序查看帖子的兴趣，本次项目针对这个小程序封面图进行优化设计。</p>
+<p>新版本的分享到小程序的封面图设计是这样的：用帖子的素材合成一副新的封面图，要求封面图的顶部展示用户头像、名称以及帖子的浏览量。根据帖子是否带有图片，合成的封面图有两种不同的样式：<br>
+1、带图片的帖子，取帖子第一张图片，在用户信息下面展示图片内容<br>
+2、纯文本的帖子，取帖子正文内容展示在用户信息下面，最多显示6行帖子内容<br>
+<img src="https://git4pl.github.io/post-images/1598063903913.png" alt="cover with picture" loading="lazy"><br>
+<img src="https://git4pl.github.io/post-images/1598063965619.png" alt="cover with text" loading="lazy"></p>
+<h3 id="实现方案">实现方案</h3>
+<p>由于封面图中的元素都是Server动态下发的，尤其是图片需要下载后才能处理。一开始想到用UI控件来创建这个布局，可以很方便地利用控件的属性实现UI效果的细节，但是要生成的封面图没有Activity或者其他ViewGroup容器来承载它的绘制，最后采用Canvas + Paint来动态绘制，并将生成的Bitmap保存为本地文件。在实现这个UI效果的过程中遇到了一些技术上的小坑，记录下来以备后续复用。</p>
+<h4 id="绘制圆形头像">绘制圆形头像</h4>
+<p>利用Canvas绘制圆形图是很容易的事，通常可以使用这三种API在Canvas上实现圆形图：BitmapShader、ClipPath和PorterDuffXfermode。</p>
+<h5 id="bitmapshager-图片渲染方式">BitmapShager 图片渲染方式</h5>
+<pre><code>public Bitmap getCirleBitmap(Bitmap bmp) {
+    //获取bmp的宽高 小的一个做为圆的直径r
+    int w = bmp.getWidth();
+    int h = bmp.getHeight();
+    int r = Math.min(w, h);
+ 
+    //创建一个paint
+    Paint paint = new Paint();
+    paint.setAntiAlias(true);
+ 
+    //新创建一个Bitmap对象newBitmap 宽高都是r
+    Bitmap newBitmap = Bitmap.createBitmap(r, r, Bitmap.Config.ARGB_8888);
+ 
+    //创建一个使用newBitmap的Canvas对象
+    Canvas canvas = new Canvas(newBitmap);
+ 
+    //创建一个BitmapShader对象 使用传递过来的原Bitmap对象bmp
+    BitmapShader bitmapShader = new BitmapShader(bmp, Shader.TileMode.CLAMP，Shader.TileMode.CLAMP);
+ 
+    //paint设置shader
+    paint.setShader(bitmapShader);
+ 
+    //canvas画一个圆 使用设置了shader的paint
+    canvas.drawCircle(r / 2, r / 2, r / 2, paint);
+   
+    return newBitmap;
+}
+</code></pre>
+<h5 id="clippath-裁剪区域">ClipPath 裁剪区域</h5>
+<pre><code>public Bitmap getCirleBitmap(Bitmap bmp) {
+    //获取bmp的宽高 小的一个做为圆的直径r
+    int w = bmp.getWidth();
+    int h = bmp.getHeight();
+    int r = Math.min(w, h);
+ 
+    //创建一个paint
+    Paint paint = new Paint();
+    paint.setAntiAlias(true);
+ 
+    //新创建一个Bitmap对象newBitmap 宽高都是r
+    Bitmap newBitmap = Bitmap.createBitmap(r, r, Bitmap.Config.ARGB_8888);
+ 
+    //创建一个使用newBitmap的Canvas对象
+    Canvas canvas = new Canvas(newBitmap);
+ 
+    //创建一个Path对象，path添加一个圆 圆心半径均是r / 2， Path.Direction.CW顺时针方向
+    Path path = new Path();
+    path.addCircle(r / 2, r / 2, r / 2, Path.Direction.CW);
+    //canvas绘制裁剪区域
+    canvas.clipPath(path);   
+    //canvas将图画到留下的圆形区域上
+    canvas.drawBitmap(bmp, 0, 0, paint);
+ 
+    return newBitmap;
+}
+</code></pre>
+<h5 id="porterduffxfermode-图片混合模式">PorterDuffXfermode 图片混合模式</h5>
+<pre><code>public Bitmap getCirleBitmap(Bitmap bmp) {
+    //获取bmp的宽高 小的一个做为圆的直径r
+    int w = bmp.getWidth();
+    int h = bmp.getHeight();
+    int r = Math.min(w, h);
+
+    //创建一个paint
+    Paint paint = new Paint();
+    paint.setAntiAlias(true);
+
+    //新创建一个Bitmap对象newBitmap 宽高都是r
+    Bitmap newBitmap = Bitmap.createBitmap(r, r, Bitmap.Config.ARGB_8888);
+
+    //创建一个使用newBitmap的Canvas对象
+    Canvas canvas = new Canvas(newBitmap);
+
+    //canvas画一个圆形
+    canvas.drawCircle(r / 2, r / 2, r / 2, paint);
+
+    //然后 paint要设置Xfermode 模式为SRC_IN 显示上层图像（后绘制的一个）的相交部分
+    paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+
+    //canvas调用drawBitmap直接将bmp对象画在画布上 
+    //因为paint设置了Xfermode，所以最终只会显示这个bmp的一部分 
+    //也就是bmp的和下层圆形相交的一部分圆形的内容
+    canvas.drawBitmap(bmp, 0, 0, paint);
+
+    return newBitmap;
+}
+</code></pre>
+<p>虽然上面三种方式都能绘出圆形图，但在实际项目需求中有一些坑需要注意。<br>
+使用BitmapShader要注意图像缩放的处理，可以计算好缩放比例，使用Matrix对象设置缩放比例，然后将Matrix对象设置到BitmapShader对象中。<br>
+使用Canvas的clipPath方法设置path，然后调用drawBitmap绘制的图形有锯齿现象，即使在paint中设置了抗锯齿参数也不能消除。<br>
+使用Xfermode的方式，在实际项目中如果直接用上面代码里的写法将不能得到预期的圆形图，需要使用saveLayer方法将绘制操作保存到新的图层，将图像合成的处理放到离屏缓存中进行。</p>
+<h4 id="文字居中绘制">文字居中绘制</h4>
+<p>项目需求中要求顶部的用户头像和用户名水平方向居中对齐，这两者要居中对齐可以确定一个基准参考线，比如都关于顶部栏纵向的中线上下对称，头像关于该中线对称很容易实现，而要实现文字关于该中线的对称需要理解Android绘制文字的原理以及drawText方法的参数意义。<br>
+<img src="https://git4pl.github.io/post-images/1598087533894.png" alt="" loading="lazy"><br>
+Android的文字绘制是按如上图所示的基线绘制的，与之对应的实现是Paint类中的FontMetrics类的定义。</p>
+<pre><code>public static class FontMetrics {
+    /**
+        * The maximum distance above the baseline for the tallest glyph in
+        * the font at a given text size.
+        */
+    public float   top;
+    /**
+        * The recommended distance above the baseline for singled spaced text.
+        */
+    public float   ascent;
+    /**
+        * The recommended distance below the baseline for singled spaced text.
+        */
+    public float   descent;
+    /**
+        * The maximum distance below the baseline for the lowest glyph in
+        * the font at a given text size.
+        */
+    public float   bottom;
+    /**
+        * The recommended additional space to add between lines of text.
+        */
+    public float   leading;
+}
+</code></pre>
+<p>drawText()方法的x、y指定要绘制文字的基准点，该基准点是要绘制的文字基准线上的left、center、right三点之一（如下图），具体是哪个由paint的setTextAlign()方法设置，默认是left。<br>
+<img src="https://git4pl.github.io/post-images/1598088667357.png" alt="" loading="lazy"><br>
+要让所画的文字刚好相对于我们选定的参考线上下居中，即让文字的中心点落在参考线上，我们需要计算调用drawText()方法的y坐标，即上图中基线的y坐标值。可以将问题转化为计算中心点相对于基线的距离，文字中心点相对于其基线的距离可表示为 (top+bottom)/2 - bottom，在屏幕坐标系中top的实际值相对于基线是负数，所以前述距离公式为 (-top+bottom)/2 - bottom，简化后为 -top/2 - bottom/2，将此值加上参考线的y坐标值即为我们所求的y坐标。另外要注意paint.getFontMetrics()这个方法一定要在设置字体大小或者样式等一系列会影响字体的方法后调用，不然获取到的top和bottom值不准。</p>
+<pre><code>Paint paint = new Paint();
+paint.setTextSize(textSize);
+paint.setAntiAlias(true);
+Paint.FontMetrics fm = paint.getFontMetrics();
+float top = fm.top;
+float bottom = fm.bottom;
+float baseLineY = (headH &gt;&gt; 1) - top / 2 - bottom / 2;
+canvas.drawText(username, x, baseLineY, paint);
+</code></pre>
+<h4 id="绘制多行文字">绘制多行文字</h4>
+<p>Canvas.drawText()只能绘制单行的文字，不能换行。它既不能在View的边缘自动折行显示，也不能在换行符\n处换行。而StaticLayout 支持换行，它既可以为文字设置宽度上限来让文字自动换行，也会在 \n 处主动换行。<br>
+StaticLayout通过构造函数参数设置文字显示的属性。StaticLayout 的构造方法是 StaticLayout(CharSequence source, TextPaint paint, int width, Layout.Alignment align, float spacingmult, float spacingadd, boolean includepad)，其中参数里：</p>
+<pre><code>width 是文字区域的宽度，文字到达这个宽度后就会自动换行；
+align 是文字的对齐方向；
+spacingmult 是行间距的倍数，通常情况下填 1 就好；
+spacingadd 是行间距的额外增加值，通常情况下填 0 就好；
+includepad 是指是否在文字上下添加额外的空间，来避免某些过高的字符的绘制出现越界。
+</code></pre>
+<h4 id="图片裁剪压缩">图片裁剪压缩</h4>
+<p>微信分享SDK对分享到微信小程序的封面图大小有限制，要求体积不超过128KB，对图片分辨率没有明确要求，但是在不同机型以及平台终端上展示分享出去的小程序链接里发现微信SDK对封面图的尺寸比例是有要求的。小程序在显示分享的封面图时，图片的宽高比为5:4，不符合这个比例的尺寸，微信客户端将会对其进行裁剪。</p>
+<h3 id="thanks-to">Thanks To</h3>
+<p><a href="https://blog.csdn.net/zly921112/article/details/50401976">android canvas drawText()文字居中</a><br>
+<a href="https://www.jianshu.com/p/5136fbc0d301">StaticLayout支持文字绘制换行</a><br>
+<a href="https://blog.csdn.net/TO_BE_RM/article/details/79859540">初识Android Bitmap压缩原理</a></p>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[利用Canvas绘制圆形图]]></title>
         <id>https://git4pl.github.io/post/Vgyf9i2nb/</id>
