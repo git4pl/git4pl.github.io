@@ -1,0 +1,269 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>探究Jetpack Compose实现原理 | PL Notes</title>
+<link rel="shortcut icon" href="https://git4pl.github.io/favicon.ico?v=1620380121663">
+<link href="https://cdn.bootcss.com/font-awesome/5.11.2/css/all.css" rel="stylesheet">
+<link rel="stylesheet" href="https://git4pl.github.io/styles/main.css">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/go.min.js"></script>
+<script src="https://cdn.bootcss.com/moment.js/2.23.0/moment.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            PL Notes
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+    </div>
+</nav>
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    探究Jetpack Compose实现原理
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2021-05-07 ·
+                    </time>
+                    
+                </div>
+                <div class="post-content">
+                    <h3 id="整体设计原理">整体设计原理</h3>
+<p>我们熟悉的 Android View 框架以 View 树的形式描述 UI，Jetpack Compose 构建 UI 也是树的形式，它在 UI 层级中的基本元素是 LayoutNode 节点。因为 Compose 是声明式 UI，需要将配置和绘制分离，同时设计算法对节点进行复用，以实现高性能。Jetpack Compose UI 框架的主要技术点大概如下：</p>
+<ul>
+<li>@Composable 注解函数实现 UI 的声明和配置</li>
+<li>基于注解和 Composer 实现 LayoutNode 的缓存及复用，同时实现对属性变化的监听</li>
+<li>LayoutNode 主要实现 UI 布局和绘制</li>
+</ul>
+<h3 id="compose-recompose-原理">Compose &amp; Recompose 原理</h3>
+<p>使用 Jetpack Compose 构建 UI 最明显的一个特点是通过 @Composable 注解函数来声明 UI 内容，这里使用注解函数声明 UI 不能说 Compose 框架是一个注解处理器，Compose 应用了 Kotlin 编译器的新特性 —— IR extension（intermediate representation的缩写，意为中间语言），在 Kotlin 编译器的类型检测和代码生成阶段添加一些代码逻辑。@Composable 注解和 Kotlin 的 suspend 关键字类似，可以适用于函数、Lambda 或者函数类型，它会导致被注解的元素类型改变，未被注解的函数类型与注解后的相同函数类型互不兼容。</p>
+<pre><code>@Composable
+fun Greeting(name: String) {
+    Text(text = &quot;Hello $name!&quot;)
+}
+</code></pre>
+<p>将上面这段代码反编译后得到如下的代码内容，编译器在参数列表中增加了两个参数，在代码逻辑中也增加了很多条件判断和代码块，可见编译器做了大量的工作来实现简洁的声明式 API 调用。</p>
+<div align=center>
+<img src=file:///Users/a58/Documents/Gridea/post-images/1620379910698.png width=75%>
+</div>
+<p>从反编译的代码可以看到，编译器加入了一个叫做 Composer 的参数，这个参数就是在 Composable 函数中传递的上下文调用对象。Composer 对象将 Compose 框架里的 Composition 和 Recomposition 过程贯穿起来了，这里涉及到 Compose 框架的核心绘制机制。</p>
+<p>Composer 可以理解为与 Android View 框架里的 Context 类似的对象，负责存储所有跟 Compose UI 有关的状态和生命周期，它会从 UI 的根节点一直往下传，连接所有调用到的 Composable 函数，所以 Composer 知道上一次渲染的状态，而且这些状态都有对应的位置。</p>
+<p>Composer 的实现包含了一个与 Gap Buffer（间隙缓冲区）密切相关的数据结构 SlotTable，像是我们熟悉的 HashMap 一样，一个 key 对应到一个状态，这里的 key 就是上面反编译代码新增的第二个参数 $changed，它是这个函数的调用点所代表的源码位置的哈希值。</p>
+<h4 id="间隙缓冲区是如何工作的">间隙缓冲区是如何工作的？</h4>
+<p>这里我们简单理解一下间隙缓冲区的工作原理。间隙缓冲区代表了一个包含了当前索引的集合，在内存里用数组来实现，这个数组的大小会比它代表的数据集合要大一些，没有被使用的空间被称为 Gap（间隙）。</p>
+<p>一个正在执行的 Composable UI 层级在这个数据结构中可能如下所示。在这个SlotTable 数据结构中存在 CompositionData 和 CompositionGroup 两种概念的数据，分别表示单个的 UI 控件或者是一组控件。</p>
+<div align=center>
+<img src=file:///Users/a58/Documents/Gridea/post-images/1620379978423.png width=75%>
+</div>
+<p>假设已经完成了层级结构的执行，在某个时候，我们需要更新 UI，这会重新组合一些 UI 元素，这叫做重组（Recomposition）。重组的时候将索引值重置回数组开头并再次进行遍历，遍历过程中查看数据，然后可能什么也不做，或者更新数据值。</p>
+<div align=center>
+<img src=file:///Users/a58/Documents/Gridea/post-images/1620380008478.png width=75%>
+</div>
+<p>如果要改变 UI 结构，并希望插入一些新的控件，这时会在 SlotTable 中进行一次插入操作，将间隙插入到需要的位置，可以理解为将操作位置后面的原有数据平移到间隙后面，这样就可以在新插入的间隙处添加新的数据。</p>
+<div align=center>
+<img src=file:///Users/a58/Documents/Gridea/post-images/1620380040341.png width=75%>
+</div>
+<p>我们再通过下面这段 Compose 代码及其反编译代码理解 Compose 编译器为我们做的事，并理解 SlotTable 数据结构的工作机制和性能问题。</p>
+<pre><code>@Composable
+fun Counter() {
+    var count by remember { mutableStateOf(0) }
+    Button(onClick = { count += 1 }) {
+        Text(text = &quot;Count: $count&quot;, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+    }
+}
+</code></pre>
+<div align=center>
+<img src=file:///Users/a58/Documents/Gridea/post-images/1620380073540.png width=75%>
+</div>
+<p>可以看到编译器在函数体中插入了一些额外的调用，并且这些调用是 Composer 对象的 startXXXGroup 和 endXXXGroup 方法的成对出现，在 Composer 接口中定义了 Replaceable、Movable、Restart 和 Default 这几种 Group，这些 group 适用于不同逻辑控制条件，每个 group 本身是树形结构，类似 HashMap 的 SlotTable 数据结构可以高效地操作和复用 slot。</p>
+<p>在 SlotTable 的操作性能方面，除了需要移动间隙时，其他的操作包括 get、move、insert 和 delete 都是常数级的时间复杂度，只有当 UI 结构发生改变时需要移动间隙，移动间隙的时间复杂度是 O(n)。通常我们定义好的 UI 内容不会频繁地改变，只是提供给 UI 展示的数据和 UI 属性会发生变化，所以 SlotTable 的操作性能是可接受的。</p>
+<h4 id="位置记忆化是什么">位置记忆化是什么？</h4>
+<p>Compose 中的这种类缓存的数据结构可以在 UI 中任意实现控制流，编译器管理 UI，它是基于位置记忆化实现的。</p>
+<p>什么是位置记忆化呢？前文已经介绍了 Composable 函数在编译后编译器给添加了一个 Composer 的参数，它包含了当前组件在树形结构中的位置以及将要访问哪些节点的上下文信息。编译器的目标是保留这样的数据模型，并且要复用 UI 在上一次执行过程中创建的节点，不用在每次执行时都要创建新的节点，也就是希望缓存每个节点。假设要缓存每个节点，那么每次执行函数时，就需要以相同的顺序查看缓存。从上面反编译的代码中可以看出，Composer 对象调用的 group 方法中第一个参数是一个数值，从 Composer 的源码注释可以知道那个数值是基于代码位置的一个 key，也就是表明所调用的函数在代码文件中的行信息，所以这个 key 在同一个代码文件中不会重复。在 Composer 中用一个带有 Gap Buffer 的数组来缓存代表函数位置的 key，每次执行同一个 Composable 函数时，它的数据模型可以被复用，只要 UI 结构不改变，就只需要更新数据就可以了。</p>
+<h4 id="kotlin-语言特性对-compose-的支持">Kotlin 语言特性对 Compose 的支持</h4>
+<p>Jetpack Compose 完全采用 Kotlin 实现，Kotlin 提供的一些语言特性使得编写高质量的 Compose 代码变得很容易，理解了 Kotlin 的这些语言特性也能很好地理解 Compose 代码背后的运行机制。</p>
+<ul>
+<li>
+<p>默认参数<br>
+Kotlin 函数参数可以指定默认值，调用方没有明确传递相应的值时，系统会使用默认值，这减少了对函数的重载。默认参数结合命名参数使代码读起来更清晰，参数具有自描述性，也更容易理解代码。</p>
+</li>
+<li>
+<p>高阶函数和 Lambda 表达式<br>
+Compose 中的函数大量应用 Kotlin 高阶函数，高阶函数与 Lambda 表达式自然配对，如果只需要该函数在一处调用，那么可以直接在函数被调用处用 Lambda 表达式。特别地，如果需要的高阶函数调用位置是函数的最后一个参数，可以使用尾随 Lambda，直接将表达式部分放到函数的圆括号后面，用大括号包起来。</p>
+</li>
+<li>
+<p>范围和接收器<br>
+有些方法和属性仅在某一范围内可用，限定的范围可让你在需要的地方提供相关功能，避免意外地在不当之处使用该功能。</p>
+</li>
+<li>
+<p>委托属性<br>
+Kotlin 支持属性委托，这些属性就像字段一样被调用，但是它们的值是通过对表达式求值动态确定的。</p>
+</li>
+<li>
+<p>解构数据类<br>
+对于数据类，可以使用解构声明来轻松地访问数据。</p>
+</li>
+</ul>
+<p>其他被应用的特性包括单例对象、类型安全构建器和协程等。</p>
+<h4 id="重组的实现原理">重组的实现原理</h4>
+<p>当 Composable 函数的输入变更时再次调用该函数的过程就是重组，Composable 函数重组是如何触发的呢？还是以上面的 Counter 函数为例，编译器在函数末尾调用 endGroup 方法返回一个 ScopeUpdateScope 对象，当对象不为空的时候调用 updateScope 方法，将在需要时重新调用当前的 Composable 函数。</p>
+<p>当 Compose 根据新输入重组时，它仅仅调用可能已经更改的函数或 Lambda，会跳过其余的函数或 Lambda，这样 Compose 可以高效地重组。</p>
+<h3 id="关于-compose-的注意事项">关于 Compose 的注意事项</h3>
+<p>在使用 Compose 编程时有许多注意事项，大概就像我们用 Android View 框架开发自定义 UI 组件时那样，不能在 onDraw 方法中执行耗时的任务，也不要在 onDraw 方法中创建对象等等，使用 Compose 编程的最佳做法是使 Composable 函数保持快速执行、幂等且没有副作用，因为 Compose 具有以下特点：</p>
+<ul>
+<li>
+<p>Composable 函数可以按任何顺序执行<br>
+在有 Composable 函数的代码中，Composable 函数可能不会按其在代码中出现的顺序执行，Compose 可以识别出某些 UI 元素的优先级高于其他 UI 元素，因而首先绘制这些元素。</p>
+</li>
+<li>
+<p>Composable 函数可以并行执行<br>
+Compose 可以通过并行运行 Composable 函数来优化重组，这样 Compose 就可以利用多个核心，并以较低的优先级运行 Composable 函数，Composable 函数可能会在后台线程池中执行。所以 Composable 函数都不应有副作用。</p>
+</li>
+<li>
+<p>重组会跳过尽可能多的 Composable 函数和 Lambda<br>
+如果界面上的某些部分没有变化，Compose 会尽力只重组需要更新的部分。</p>
+</li>
+<li>
+<p>重组是乐观操作<br>
+Compose 预计会在参数再次更改之前完成重组，如果某个参数在重组完成之前更改了，Compose 可能会取消重组，然后使用新参数重新开始。</p>
+</li>
+<li>
+<p>Composable 函数可以非常频繁地运行<br>
+有时可能会针对界面动画的每一帧运行一个 Composable 函数，如果该函数执行耗时操作，就会导致界面卡顿。</p>
+</li>
+</ul>
+<h3 id="与android-view交互">与Android View交互</h3>
+<p>Jetpack Compose 是一套全新的 UI 构建框架，但它也能配合现有的 View 框架构建 UI，官方建议构建新的应用最好选择 Compose 实现整个界面，当然需要等 Compose 正式发布后，对于现有的应用可以使用 Compose 和 View 结合逐步修改界面的构建方式。</p>
+<p>Compose 与 Android View 的结合使用主要有两种方式：</p>
+<ul>
+<li>在Android View 中使用 Compose</li>
+<li>在Compose 中使用 Android View</li>
+</ul>
+<p>如果要将 Compose 界面内容加入到现有的 View 布局中，可以使用 ComposeView 组件，调用其 setContent 方法，在该方法中可以直接调用 Composable 函数。ComposeView 是一个 Android View，可以像其他 View 组件一样放到 XML 布局中，然后用 id 获取 ComposeView，并调用 setContent() 以使用 Compose。如果整个 UI 布局是使用 Compose 构建的，可以直接在 fragment 中添加 ComposeView，这样可以完全避免使用 XML 布局文件。</p>
+<p>另一方面，如果要在 Compose 构建的界面中添加 Android View 控件或层级结构，可以使用 AndroidView 可组合项。系统会向 AndroidView 传递一个返回 View 的 Lambda，同时提供了在布局加载完成后被调用的 update 回调，每当在该回调中读取的 State 发生变化时，AndroidView 都会进行重组。</p>
+<h3 id="refers-to">Refers To</h3>
+<p><a href="http://intelligiblebabble.com/compose-from-first-principles/">Compose From First Principles</a><br>
+<a href="https://medium.com/androiddevelopers/under-the-hood-of-jetpack-compose-part-2-of-2-37b2c20c6cdd">Under the hood of Jetpack Compose</a><br>
+<a href="https://slacker.ro/2021/03/08/%e5%88%9d%e6%8e%a2-jetpack-compose%e2%80%8a-%e2%80%8a%e6%b8%b2%e6%9f%93%e6%a9%9f%e5%88%b6%ef%bc%88rendering%ef%bc%89/">初探 Jetpack Compose — 渲染機制（Rendering）</a></p>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://git4pl.github.io/post/uDFS_pXuN/" class="post-title gt-a-link">
+                    初探Jetpack Compose
+                </a>
+            </div>
+        
+
+        
+
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">积跬步至千里，积小流成江海</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://git4pl.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+    hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>
