@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://git4pl.github.io</id>
     <title>PL Notes</title>
-    <updated>2021-05-07T09:37:40.152Z</updated>
+    <updated>2021-06-10T02:54:50.783Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://git4pl.github.io"/>
     <link rel="self" href="https://git4pl.github.io/atom.xml"/>
@@ -30,27 +30,19 @@ fun Greeting(name: String) {
     Text(text = &quot;Hello $name!&quot;)
 }
 </code></pre>
-<p>将上面这段代码反编译后得到如下的代码内容，编译器在参数列表中增加了两个参数，在代码逻辑中也增加了很多条件判断和代码块，可见编译器做了大量的工作来实现简洁的声明式 API 调用。</p>
-<div align=center>
-<img src=file:///Users/a58/Documents/Gridea/post-images/1620379910698.png width=75%>
-</div>
+<p>将上面这段代码反编译后得到如下的代码内容，编译器在参数列表中增加了两个参数，在代码逻辑中也增加了很多条件判断和代码块，可见编译器做了大量的工作来实现简洁的声明式 API 调用。<br>
+<img src="https://git4pl.github.io/post-images/1620379910698.png" alt="" loading="lazy"></p>
 <p>从反编译的代码可以看到，编译器加入了一个叫做 Composer 的参数，这个参数就是在 Composable 函数中传递的上下文调用对象。Composer 对象将 Compose 框架里的 Composition 和 Recomposition 过程贯穿起来了，这里涉及到 Compose 框架的核心绘制机制。</p>
 <p>Composer 可以理解为与 Android View 框架里的 Context 类似的对象，负责存储所有跟 Compose UI 有关的状态和生命周期，它会从 UI 的根节点一直往下传，连接所有调用到的 Composable 函数，所以 Composer 知道上一次渲染的状态，而且这些状态都有对应的位置。</p>
 <p>Composer 的实现包含了一个与 Gap Buffer（间隙缓冲区）密切相关的数据结构 SlotTable，像是我们熟悉的 HashMap 一样，一个 key 对应到一个状态，这里的 key 就是上面反编译代码新增的第二个参数 $changed，它是这个函数的调用点所代表的源码位置的哈希值。</p>
 <h4 id="间隙缓冲区是如何工作的">间隙缓冲区是如何工作的？</h4>
 <p>这里我们简单理解一下间隙缓冲区的工作原理。间隙缓冲区代表了一个包含了当前索引的集合，在内存里用数组来实现，这个数组的大小会比它代表的数据集合要大一些，没有被使用的空间被称为 Gap（间隙）。</p>
-<p>一个正在执行的 Composable UI 层级在这个数据结构中可能如下所示。在这个SlotTable 数据结构中存在 CompositionData 和 CompositionGroup 两种概念的数据，分别表示单个的 UI 控件或者是一组控件。</p>
-<div align=center>
-<img src=file:///Users/a58/Documents/Gridea/post-images/1620379978423.png width=75%>
-</div>
+<p>一个正在执行的 Composable UI 层级在这个数据结构中可能如下所示。在这个SlotTable 数据结构中存在 CompositionData 和 CompositionGroup 两种概念的数据，分别表示单个的 UI 控件或者是一组控件。<br>
+<img src="https://git4pl.github.io/post-images/1620379978423.png" alt="" loading="lazy"></p>
 <p>假设已经完成了层级结构的执行，在某个时候，我们需要更新 UI，这会重新组合一些 UI 元素，这叫做重组（Recomposition）。重组的时候将索引值重置回数组开头并再次进行遍历，遍历过程中查看数据，然后可能什么也不做，或者更新数据值。</p>
-<div align=center>
-<img src=file:///Users/a58/Documents/Gridea/post-images/1620380008478.png width=75%>
-</div>
+<figure data-type="image" tabindex="1"><img src="https://git4pl.github.io/post-images/1620380008478.pn" alt="" loading="lazy"></figure>
 <p>如果要改变 UI 结构，并希望插入一些新的控件，这时会在 SlotTable 中进行一次插入操作，将间隙插入到需要的位置，可以理解为将操作位置后面的原有数据平移到间隙后面，这样就可以在新插入的间隙处添加新的数据。</p>
-<div align=center>
-<img src=file:///Users/a58/Documents/Gridea/post-images/1620380040341.png width=75%>
-</div>
+<figure data-type="image" tabindex="2"><img src="https://git4pl.github.io/post-images/1620380040341.png" alt="" loading="lazy"></figure>
 <p>我们再通过下面这段 Compose 代码及其反编译代码理解 Compose 编译器为我们做的事，并理解 SlotTable 数据结构的工作机制和性能问题。</p>
 <pre><code>@Composable
 fun Counter() {
@@ -60,9 +52,7 @@ fun Counter() {
     }
 }
 </code></pre>
-<div align=center>
-<img src=file:///Users/a58/Documents/Gridea/post-images/1620380073540.png width=75%>
-</div>
+<figure data-type="image" tabindex="3"><img src="https://git4pl.github.io/post-images/1620380073540.png" alt="" loading="lazy"></figure>
 <p>可以看到编译器在函数体中插入了一些额外的调用，并且这些调用是 Composer 对象的 startXXXGroup 和 endXXXGroup 方法的成对出现，在 Composer 接口中定义了 Replaceable、Movable、Restart 和 Default 这几种 Group，这些 group 适用于不同逻辑控制条件，每个 group 本身是树形结构，类似 HashMap 的 SlotTable 数据结构可以高效地操作和复用 slot。</p>
 <p>在 SlotTable 的操作性能方面，除了需要移动间隙时，其他的操作包括 get、move、insert 和 delete 都是常数级的时间复杂度，只有当 UI 结构发生改变时需要移动间隙，移动间隙的时间复杂度是 O(n)。通常我们定义好的 UI 内容不会频繁地改变，只是提供给 UI 展示的数据和 UI 属性会发生变化，所以 SlotTable 的操作性能是可接受的。</p>
 <h4 id="位置记忆化是什么">位置记忆化是什么？</h4>
