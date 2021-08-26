@@ -1,0 +1,397 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+<meta name="description" content=""/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>浅析Flutter中的生命周期 | PL Notes</title>
+<link rel="shortcut icon" href="https://git4pl.github.io/favicon.ico?v=1629985054154">
+<link href="https://cdn.bootcss.com/font-awesome/5.11.2/css/all.css" rel="stylesheet">
+<link rel="stylesheet" href="https://git4pl.github.io/styles/main.css">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dockerfile.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/dart.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.15.10/languages/go.min.js"></script>
+<script src="https://cdn.bootcss.com/moment.js/2.23.0/moment.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+
+<!-- DEMO JS -->
+<!--<script src="media/scripts/index.js"></script>-->
+
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+</head>
+<body>
+<div class="main gt-bg-theme-color-first">
+    <nav class="navbar navbar-expand-lg">
+    <div class="navbar-brand">
+        <img class="user-avatar" src="/images/avatar.png" alt="头像">
+        <div class="site-name gt-c-content-color-first">
+            PL Notes
+        </div>
+    </div>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars gt-c-content-color-first" style="font-size: 18px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="navbar-nav mr-auto" style="text-align: center">
+            
+                <div class="nav-item">
+                    
+                        <a href="/" class="menu gt-a-link">
+                            首页
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/archives" class="menu gt-a-link">
+                            归档
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/tags" class="menu gt-a-link">
+                            标签
+                        </a>
+                    
+                </div>
+            
+                <div class="nav-item">
+                    
+                        <a href="/post/about" class="menu gt-a-link">
+                            关于
+                        </a>
+                    
+                </div>
+            
+        </div>
+    </div>
+</nav>
+    <div class="post-container">
+        <div class="post-detail gt-bg-theme-color-second">
+            <article class="gt-post-content">
+                <h2 class="post-title">
+                    浅析Flutter中的生命周期
+                </h2>
+                <div class="post-info">
+                    <time class="post-time gt-c-content-color-first">
+                        · 2021-08-26 ·
+                    </time>
+                    
+                </div>
+                <div class="post-content">
+                    <h2 id="背景">背景</h2>
+<p>作为 Android 开发者，我们对 Activity、Service 等系统组件的生命周期非常熟悉，在日常开发中也会利用组件的生命周期特点开发业务逻辑。</p>
+<p>Flutter 中有“一切皆Widget”的说法，Widget 是 Flutter 功能的抽象描述，是视图的配置信息，也是数据的映射。Android 开发中的 View、Layout、Activity、Application等，对应到 Flutter 中都是 Widget。</p>
+<p>Flutter 的 Widget 有 StatelessWidget 和 StatefulWidget 两种类型，StatelessWidget 用于处理静态的、无状态变化的视图展示，而 StatefulWidget 应对有交互、需要动态变化视觉效果的场景。</p>
+<p>StatelessWidget 通过父 Widget 初始化时传入的静态配置就能完全控制其静态展示，而 StatefulWidget 需要借助于 State 对象，在特定阶段来处理用户交互或内部数据的变化，然后更新到 UI 上。这些特定的阶段涵盖了一个 Widget 从初始化到卸载的全过程，即生命周期。Flutter 中的生命周期即指的 StatefulWidget 的生命周期，并通过 State 对象来体现，StatelessWidget 的生命周期只有 build 过程，且只会执行一次。</p>
+<h2 id="生命周期方法">生命周期方法</h2>
+<p>Flutter中的生命周期方法主要包括以下内容：</p>
+<ul>
+<li>createState<br>
+该函数为 StatefulWidget 中创建 State 的方法，当 StatefulWidget 被调用时会立即执行 createState 。</li>
+</ul>
+<pre><code>class MyPage extends StatefulWidget {
+  @override
+  _MyPageState createState() =&gt; _MyScreenState();
+}
+</code></pre>
+<ul>
+<li>initState<br>
+该函数为 State 初始化调用，因此可以在此期间执行 State 各变量的初始赋值，同时也可以在此期间与服务端交互，获取服务端数据后调用 setState 来设置 State。</li>
+</ul>
+<pre><code>int a;
+@override
+void initState() {
+  a = 0;
+  super.initState();
+}
+</code></pre>
+<ul>
+<li>didChangeDependencies<br>
+用来专门处理 State 对象依赖关系的变化，这里说的 State 为全局 State ，例如语言或者主题等，会在 initState() 方法调用结束后被调用。</li>
+</ul>
+<pre><code>@override
+void didChangeDependencies() {
+super.didChangeDependencies();
+}
+</code></pre>
+<ul>
+<li>build<br>
+主要是构建视图，返回需要渲染的 Widget ，由于 build 会被调用多次，因此在该函数中只能做返回 Widget 相关逻辑，避免因为执行多次导致状态异常。</li>
+</ul>
+<pre><code>@override
+Widget build(BuildContext context, MyButtonState state) {
+  return Container(color:Colors.red);
+}
+</code></pre>
+<ul>
+<li>
+<p>reassemble<br>
+主要是提供开发阶段使用，在 debug 模式下，每次热重载都会调用该函数，因此在 debug 阶段可以在此期间增加一些 debug 代码，来检查代码问题。</p>
+</li>
+<li>
+<p>didUpdateWidget<br>
+该函数主要是在组件重新构建，比如说热重载，父组件发生 build 的情况下，子组件该方法才会被调用，其次该方法调用之后一定会再调用本组件中的 build 方法。</p>
+</li>
+</ul>
+<pre><code>@override
+void didUpdateWidget(MyHomePage oldWidget) {
+  super.didUpdateWidget(oldWidget)
+}
+</code></pre>
+<ul>
+<li>deactivate<br>
+在组件被移除节点后会被调用，如果该组件被移除节点，然后未被插入到其他节点时，则会继续调用 dispose 永久移除。</li>
+</ul>
+<pre><code>@override
+void deactivate() {
+  super.deactivate();
+}
+</code></pre>
+<ul>
+<li>dispose<br>
+永久移除组件，并释放组件资源。</li>
+</ul>
+<pre><code>@override
+dispose() {
+  super.dispose();
+}
+</code></pre>
+<h2 id="widget生命周期流程">Widget生命周期流程</h2>
+<p>Widget 的生命周期主要体现在 State 对象的回调方法中，主要执行流程如下图：<br>
+<img src="https://git4pl.github.io/post-images/1629984803865.png" alt="" loading="lazy"></p>
+<p>上述过程可以分为3个主要阶段：创建 Widget、更新 Widget 和销毁 Widget。</p>
+<h3 id="创建">创建</h3>
+<p>State 的初始化流程是从系统调用 StatefulWidget 的 createWidget方 法开始的，在 createWidget 方法中会调用 State 类的构造方法，接着依次执行State类生命周期方法：initState -&gt; didChangeDependencies -&gt; build，然后完成页面渲染。</p>
+<p>构造方法是 State 生命周期的起点，Flutter 通过调用 StatefulWidget.createState() 创建一个 State，父 Widget 可以通过构造方法传入一些初始化 UI 的数据。当 State 对象被插入到视图树时会调用 initState 方法，这个方法在 State 对象的生命周期中只会被调用一次，我们可以在这里做一些初始化工作。didChangeDependencies 方法是用来专门处理 State 对象依赖关系变化的，它会在 initState 执行结束后立即被调用。build 方法用于构建UI视图，经过前面的步骤，当前 State 对象已经准备好了，在 build 方法中根据父 Widget 传递的初始化数据以及 State 的当前状态，创建一个 Widget 返回。</p>
+<h3 id="更新">更新</h3>
+<p>当一个Widget收到其父 Widget 的重构请求，或者由于用户的交互触发内部 State 对象改变并调用 setState 方法，或者当前 Widget 被插入到新的视图树中，或者在开发过程中发生热重载，将触发 Widget 的 State 更新，更新的场景比较复杂，每次更新都会调用 build 方法。State 更新主要由3个方法触发：setState、didchangeDependencies 与 didUpdateWidget。</p>
+<p>父 Widget 根据 runtimeType 和 Widget.key 确定需要更新的视图树中某个位置的 Widget，当 Widget 的配置发生变化或热重载时，会调用 didUpdateWidget 方法。当 State 内部状态改变时，可以在当前 State 中直接调用 setState 方法更新状态数据，setState 的回调是立即执行的，所以不能是 async 的。当 State 对象的依赖关系发生变化，比如系统语言或应用主题等全局的状态发生改变后，Framework 会通知 State 执行 didChangeDependencies 方法。</p>
+<h3 id="销毁">销毁</h3>
+<p>State 对象的销毁过程比较简单，包括移除和销毁 Widget 两个场景，系统会分别调用 deactivate 和 dispose 方法。</p>
+<p>当组件的可见状态发生变化时，deactivate 函数会被调用，这时 State 会被暂时从视图树中移除。值得注意的是，页面切换时，由于 State 对象在视图树中的位置发生了变化，需要先暂时移除后再重新添加，重新触发组件构建，因此这个函数也会被调用。</p>
+<p>当 State 被永久地从视图树中移除时，Flutter 会调用 dispose 函数。而一旦到这个阶段，组件就要被销毁了，所以我们可以在这里进行最终的资源释放、移除监听、清理环境等等。</p>
+<figure data-type="image" tabindex="1"><img src="https://git4pl.github.io/post-images/1629985000809.png" alt="" loading="lazy"></figure>
+<h2 id="app生命周期">App生命周期</h2>
+<p>State 的生命周期定义了视图从加载到构建以及更新和销毁的全过程，根据其回调机制，我们可以在合适的回调方法中根据 Widget 的状态做相应的逻辑响应。在原生 Android 开发中，我们经常会处理 App 从后台进入前台、从前台切到后台，或者是 UI 绘制完成等时机的一些状态逻辑，通过重写 Activity 的生命周期回调方法或注册应用程序的相关通知，监听 App 的生命周期并做相应的处理。在 Flutter 中我们可以监听 WidgetsBindingObserver 的回调方法来实现同样的需求。</p>
+<pre><code>abstract class WidgetsBindingObserver {
+  //页面pop
+  Future&lt;bool&gt; didPopRoute() =&gt; Future&lt;bool&gt;.value(false);
+  //页面push
+  Future&lt;bool&gt; didPushRoute(String route) =&gt; Future&lt;bool&gt;.value(false);
+  //系统窗口相关改变回调，如旋转
+  void didChangeMetrics() { }
+  //文本缩放系数变化
+  void didChangeTextScaleFactor() { }
+  //系统亮度变化
+  void didChangePlatformBrightness() { }
+  //本地化语言变化
+  void didChangeLocales(List&lt;Locale&gt; locale) { }
+  //App生命周期变化
+  void didChangeAppLifecycleState(AppLifecycleState state) { }
+  //内存警告回调
+  void didHaveMemoryPressure() { }
+  //Accessibility相关特性回调
+  void didChangeAccessibilityFeatures() {}
+}
+</code></pre>
+<p>可以看出 WidgetsBindingObserver 类提供了很多回调方法，比如屏幕旋转、屏幕亮度变化、语言变化、内存警告等都可以通过监听这个类实现回调。通过给 WidgetsBinding 的单例对象设置监听器，就可以监听对应的回调方法。</p>
+<h3 id="生命周期回调">生命周期回调</h3>
+<p>didChangeAppLifecycleState 回调函数中，有一个参数类型为 AppLifecycleState 的枚举类，这个枚举类是 Flutter 对 App 生命周期状态的封装。它包括 resumed、inactive、paused 和 detached 4个状态，常用的是前3个。</p>
+<ul>
+<li>resumed：App可见，并能响应用户的输入</li>
+<li>inactive：App处于不活动状态，无法处理用户响应；此时App可能仍可见，但在Android中被其他的Activity或Window抢占了焦点，在iOS中类似被其他页面获取了焦点</li>
+<li>paused：App不可见并不能响应用户的输入，但是在后台继续活动中</li>
+</ul>
+<p>当切换Flutter应用到前后台时，App的状态变化如下：</p>
+<ol>
+<li>从前台退回后台：AppLifecycleState.resumed -&gt; AppLifecycleState.inactive -&gt; AppLifecycleState.paused</li>
+<li>从后台切入前台：AppLifecycleState.paused -&gt; AppLifecycleState.inactive -&gt; AppLifecycleState.resumed</li>
+</ol>
+<h3 id="帧绘制回调">帧绘制回调</h3>
+<p>除了需要监听 App 的生命周期回调做相应的处理之外，有时候我们还需要在组件渲染之后做一些与显示安全相关的操作。在Flutter中同样使用WidgetsBinding来监听帧绘制回调，提供了单次 Frame 绘制回调，以及实时 Frame 绘制回调两种机制：</p>
+<ul>
+<li>单次 Frame 绘制回调，会在当前 Frame 绘制完成后进行回调，并且只会回调一次，如果要再次监听则需要再设置一次</li>
+</ul>
+<pre><code>WidgetsBinding.instance.addPostFrameCallback((_) {
+  print(&quot;单次Frame绘制回调&quot;); //只回调一次
+});
+</code></pre>
+<ul>
+<li>实时 Frame 绘制回调，则通过 addPersistentFrameCallback 实现。这个函数会在每次绘制 Frame 结束后进行回调，可以用做 FPS 监测。</li>
+</ul>
+<pre><code>WidgetsBinding.instance.addPersistentFrameCallback((_) {
+  print(&quot;实时Frame绘制回调&quot;); //每帧都回调
+});
+</code></pre>
+<h3 id="页面切换监听">页面切换监听</h3>
+<p>Flutter提供了可以监听App中页面间切换的接口类RouteAware，用以在合适的时候对页面中控件进行动画暂停或者资源释放。</p>
+<pre><code>/// An interface for objects that are aware of their current [Route].
+///
+/// This is used with [RouteObserver] to make a widget aware of changes to the
+/// [Navigator]'s session history.
+abstract class RouteAware {
+  /// Called when the top route has been popped off, and the current route
+  /// shows up.
+  void didPopNext() { }
+
+  /// Called when the current route has been pushed.
+  void didPush() { }
+
+  /// Called when the current route has been popped off.
+  void didPop() { }
+
+  /// Called when a new route has been pushed, and the current route is no
+  /// longer visible.
+  void didPushNext() { }
+}
+</code></pre>
+<p>假如有3个页面分别是A、B、C，跳转逻辑由A-&gt;B-&gt;C，而RouteAware使用with混淆在B中。</p>
+<ul>
+<li>didPopNext：在C页面关闭后，B页面调起该方法；</li>
+<li>didPush: 当由A打开B页面时，B页面调起该方法；</li>
+<li>didPop: 当B页面关闭时，B页面调起该方法；</li>
+<li>didPushNext: 当从B页面打开C页面时，该方法被调起。</li>
+</ul>
+<p><strong>使用方法</strong></p>
+<ol>
+<li>使用 with 关键字在 State 类中使用，使用前在 MaterialApp 中定义一个 RouteObserver 对象</li>
+</ol>
+<pre><code>final RouteObserver&lt;Route&lt;dynamic&gt;&gt; routeObserver = RouteObserver();
+
+class MyApp extends StatelessWidget {
+    Widget _buildMaterialApp() =&gt; MaterialApp(
+      initialRoute: '/',
+      navigatorObservers: [routeObserver], //添加路由观察者
+      onGenerateRoute: _onGenerateRoute);
+}
+</code></pre>
+<ol start="2">
+<li>在B页面中混淆 RouteAware，并注册 RouteObserver，记得在 dispose 方法中取消注册</li>
+</ol>
+<pre><code>class B extends StatefulWidget {
+     B({Key key}) : super(key: key);
+}
+
+class BState extends State&lt;B&gt;  with RouteAware {
+
+  @override
+  void didChangeDependencies() {
+    routeObserver.subscribe(this, ModalRoute.of(context)); //订阅
+    super.didChangeDependencies();
+  }
+
+  @override
+  void didPush() {
+    debugPrint(&quot;didPush&quot;);
+    super.didPush();
+  }
+
+  @override
+  void didPop() {
+    debugPrint(&quot;didPop&quot;);
+    super.didPop();
+  }
+
+  @override
+  void didPopNext() {
+    debugPrint(&quot;didPopNext&quot;);
+    super.didPopNext();
+  }
+  
+@override
+  void didPushNext() {
+    debugPrint(&quot;didPushNext&quot;);
+    super.didPushNext();
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this); //取消订阅
+    super.dispose();
+  }
+}
+</code></pre>
+<h2 id="总结">总结</h2>
+<ol>
+<li>Flutter Widget 生命周期的实际承载者是State类，其主要过程分为创建（插入视图树）、更新（在视图树中发生状态变化）和销毁（从视图树中移除）3个阶段；</li>
+<li>StatelessWidget 用于不需要维护状态的场景，只会执行一次 build 方法，StatefulWidget 的 build 方法会被多次执行，触发函数是 setState、didChangeDependencies、didUpdateWidget；</li>
+<li>Flutter App 生命周期可以通过 WidgetsBinding 注册监听 WidgetsBindingObserver 类的回调方法来获取；</li>
+<li>帧绘制回调可以通过 WidgetsBinding 注册 FrameCallback 的回调方法获取，包括单次 Frame 绘制回调和实时 Frame 绘制回调；</li>
+<li>监听页面间切换使用 RouteAware。</li>
+</ol>
+<h2 id="refers-to">Refers To</h2>
+<p><a href="https://api.flutter.dev/flutter/widgets/State-class.html">State<T extends StatefulWidget> class</a><br>
+<a href="https://www.jianshu.com/p/06dadf6ed3a2">Flutter widget生命周期详解</a><br>
+<a href="https://www.jianshu.com/p/3edfa7d694e7">Flutter - 监视页面的切换</a></p>
+
+                </div>
+            </article>
+        </div>
+
+        
+            <div class="next-post">
+                <div class="next gt-c-content-color-first">下一篇</div>
+                <a href="https://git4pl.github.io/post/T_YU0mYZa/" class="post-title gt-a-link">
+                    探究Jetpack Compose实现原理
+                </a>
+            </div>
+        
+
+        
+
+        
+
+        
+
+        <div class="site-footer gt-c-content-color-first">
+    <div class="slogan gt-c-content-color-first">积跬步至千里，积小流成江海</div>
+    <div class="social-container">
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    </div>
+    <div class="footer-info">
+        
+    </div>
+    <div>
+        Theme by <a href="https://imhanjie.com/" target="_blank">imhanjie</a>, Powered by <a
+                href="https://github.com/getgridea/gridea" target="_blank">Gridea | <a href="https://git4pl.github.io/atom.xml" target="_blank">RSS</a></a>
+    </div>
+</div>
+
+<script>
+    hljs.initHighlightingOnLoad()
+</script>
+
+    </div>
+</div>
+</body>
+</html>
